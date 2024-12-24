@@ -169,10 +169,15 @@ impl Aviffy {
         image_items.push(InfeBox {
             id: color_image_id,
             typ: FourCC(*b"av01"),
-            name: "",
+            name: c"Color",
         });
         let ispe_prop = ipco.push(IpcoProp::Ispe(IspeBox { width, height }));
         // This is redundant, but Chrome wants it, and checks that it matches :(
+        // Useless bloat
+        let pixi_3 = ipco.push(IpcoProp::Pixi(PixiBox {
+            channels: 3,
+            depth: color_depth_bits,
+        }));
         let av1c_color_prop = ipco.push(IpcoProp::Av1C(Av1CBox {
             seq_profile: self
                 .min_seq_profile
@@ -186,12 +191,7 @@ impl Aviffy {
             chroma_subsampling_y: self.chroma_subsampling.1,
             chroma_sample_position: 0,
         }));
-        // Useless bloat
-        let pixi_3 = ipco.push(IpcoProp::Pixi(PixiBox {
-            channels: 3,
-            depth: color_depth_bits,
-        }));
-        let mut prop_ids: ArrayVec<u8, 5> = [ispe_prop, av1c_color_prop | ESSENTIAL_BIT, pixi_3]
+        let mut prop_ids: ArrayVec<u8, 5> = [ispe_prop, pixi_3, av1c_color_prop | ESSENTIAL_BIT]
             .into_iter()
             .collect();
         // Redundant info, already in AV1
@@ -208,7 +208,7 @@ impl Aviffy {
             image_items.push(InfeBox {
                 id: alpha_image_id,
                 typ: FourCC(*b"av01"),
-                name: "",
+                name: c"", // TODO: Alpha?
             });
             let av1c_alpha_prop = ipco.push(boxes::IpcoProp::Av1C(Av1CBox {
                 seq_profile: if alpha_depth_bits >= 12 { 2 } else { 0 },
@@ -291,8 +291,10 @@ impl Aviffy {
             data_chunks.push(color_av1_data);
         };
 
+        compatible_brands.push(FourCC(*b"avif"));
         compatible_brands.push(FourCC(*b"mif1"));
         compatible_brands.push(FourCC(*b"miaf"));
+        compatible_brands.push(FourCC(*b"MA1A"));
         AvifFile {
             ftyp: FtypBox {
                 major_brand: FourCC(*b"avif"),

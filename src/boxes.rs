@@ -5,6 +5,7 @@ use crate::writer::Writer;
 use crate::writer::WriterBackend;
 use crate::writer::IO;
 use arrayvec::ArrayVec;
+use std::ffi::CStr;
 use std::fmt;
 use std::io;
 use std::io::Write;
@@ -79,7 +80,7 @@ const FULL_BOX_SIZE: usize = BASIC_BOX_SIZE + 4;
 pub struct FtypBox {
     pub major_brand: FourCC,
     pub minor_version: u32,
-    pub compatible_brands: ArrayVec<FourCC, 2>,
+    pub compatible_brands: ArrayVec<FourCC, 4>,
 }
 
 /// File Type box (chunk)
@@ -124,10 +125,10 @@ impl MpegBox for MetaBox {
             + self.iloc.len()
             + self.iinf.len()
             + self.iprp.len()
-            + IrefBox2 {
-                entries: self.iref.iter().map(|e| e.entry).collect(),
-            }
-            .len()
+        // + IrefBox2 {
+        //     entries: self.iref.iter().map(|e| e.entry).collect(),
+        // }
+        // .len()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -137,10 +138,10 @@ impl MpegBox for MetaBox {
         self.pitm.write(&mut b)?;
         self.iloc.write(&mut b)?;
         self.iinf.write(&mut b)?;
-        let iref_fixed = IrefBox2 {
-            entries: self.iref.iter().map(|e| e.entry).collect(),
-        };
-        iref_fixed.write(&mut b)?;
+        // let iref_fixed = IrefBox2 {
+        //     entries: self.iref.iter().map(|e| e.entry).collect(),
+        // };
+        // iref_fixed.write(&mut b)?;
         self.iprp.write(&mut b)
     }
 }
@@ -175,7 +176,7 @@ impl MpegBox for IinfBox {
 pub struct InfeBox {
     pub id: u16,
     pub typ: FourCC,
-    pub name: &'static str,
+    pub name: &'static CStr,
 }
 
 impl MpegBox for InfeBox {
@@ -185,7 +186,7 @@ impl MpegBox for InfeBox {
         + 2 // id
         + 2 // item_protection_index
         + 4 // type
-        + self.name.as_bytes().len() + 1 // nul-terminated
+        + self.name.to_bytes_with_nul().len()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -194,18 +195,21 @@ impl MpegBox for InfeBox {
         b.u16(self.id)?;
         b.u16(0)?;
         b.push(&self.typ.0)?;
-        b.push(self.name.as_bytes())?;
-        b.u8(0)
+        b.push(self.name.to_bytes_with_nul())
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct HdlrBox {}
 
+impl HdlrBox {
+    const HND: &CStr = c"PictureHandler";
+}
+
 impl MpegBox for HdlrBox {
     #[inline(always)]
     fn len(&self) -> usize {
-        FULL_BOX_SIZE + 4 + 4 + 13
+        FULL_BOX_SIZE + 4 + 4 + 12 + Self::HND.to_bytes_with_nul().len()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -218,7 +222,8 @@ impl MpegBox for HdlrBox {
         b.u32(0)?; // Firefox 92 wants all 0 here
         b.u32(0)?; // Reserved
         b.u32(0)?; // Reserved
-        b.u8(0)?; // Pascal string for component name
+        b.push(Self::HND.to_bytes_with_nul())?;
+        // b.u8(0)?; // Pascal string for component name
         Ok(())
     }
 }
