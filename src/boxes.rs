@@ -36,8 +36,7 @@ pub struct AvifFile<'data> {
 impl AvifFile<'_> {
     /// Where the primary data starts inside the `mdat` box, for `iloc`'s offset
     fn mdat_payload_start_offset(&self) -> u32 {
-        (self.ftyp.len() + self.meta.len()
-            + BASIC_BOX_SIZE) as u32 // mdat head
+        (self.ftyp.len() + self.meta.len() + BASIC_BOX_SIZE) as u32 // mdat head
     }
 
     /// `iloc` is mostly unnecssary, high risk of out-of-buffer accesses in parsers that don't pay attention,
@@ -127,7 +126,8 @@ impl MpegBox for MetaBox {
             + self.iprp.len()
             + IrefBox2 {
                 entries: self.iref.iter().map(|e| e.entry).collect(),
-            }.len()
+            }
+            .len()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -200,8 +200,7 @@ impl MpegBox for InfeBox {
 }
 
 #[derive(Debug, Clone)]
-pub struct HdlrBox {
-}
+pub struct HdlrBox {}
 
 impl MpegBox for HdlrBox {
     #[inline(always)]
@@ -234,9 +233,7 @@ pub struct IprpBox {
 impl MpegBox for IprpBox {
     #[inline(always)]
     fn len(&self) -> usize {
-        BASIC_BOX_SIZE
-            + self.ipco.len()
-            + self.ipma.len()
+        BASIC_BOX_SIZE + self.ipco.len() + self.ipma.len()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -287,7 +284,9 @@ pub struct IpcoBox {
 
 impl IpcoBox {
     pub fn new() -> Self {
-        Self { props: ArrayVec::new() }
+        Self {
+            props: ArrayVec::new(),
+        }
     }
 
     pub fn push(&mut self, prop: IpcoProp) -> u8 {
@@ -299,8 +298,7 @@ impl IpcoBox {
 impl MpegBox for IpcoBox {
     #[inline]
     fn len(&self) -> usize {
-        BASIC_BOX_SIZE
-            + self.props.iter().map(|a| a.len()).sum::<usize>()
+        BASIC_BOX_SIZE + self.props.iter().map(|a| a.len()).sum::<usize>()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -340,8 +338,7 @@ pub struct PixiBox {
 
 impl PixiBox {
     pub fn len(&self) -> usize {
-        FULL_BOX_SIZE
-            + 1 + self.channels as usize
+        FULL_BOX_SIZE + 1 + self.channels as usize
     }
 
     pub fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -391,7 +388,13 @@ pub struct IpmaBox {
 impl MpegBox for IpmaBox {
     #[inline]
     fn len(&self) -> usize {
-        FULL_BOX_SIZE + 4 + self.entries.iter().map(|e| 2 + 1 + e.prop_ids.len()).sum::<usize>()
+        FULL_BOX_SIZE
+            + 4
+            + self
+                .entries
+                .iter()
+                .map(|e| 2 + 1 + e.prop_ids.len())
+                .sum::<usize>()
     }
 
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
@@ -550,17 +553,16 @@ impl MpegBox for Av1CBox {
     fn write<B: WriterBackend>(&self, w: &mut Writer<B>) -> Result<(), B::Error> {
         let mut b = w.new_box(self.len());
         b.basic_box(*b"av1C")?;
-        let flags1 =
-            u8::from(self.seq_tier_0) << 7 |
-            u8::from(self.high_bitdepth) << 6 |
-            u8::from(self.twelve_bit) << 5 |
-            u8::from(self.monochrome) << 4 |
-            u8::from(self.chroma_subsampling_x) << 3 |
-            u8::from(self.chroma_subsampling_y) << 2 |
-            self.chroma_sample_position;
+        let flags1 = u8::from(self.seq_tier_0) << 7
+            | u8::from(self.high_bitdepth) << 6
+            | u8::from(self.twelve_bit) << 5
+            | u8::from(self.monochrome) << 4
+            | u8::from(self.chroma_subsampling_x) << 3
+            | u8::from(self.chroma_subsampling_y) << 2
+            | self.chroma_sample_position;
 
         b.push(&[
-            0x81, // marker and version
+            0x81,                                           // marker and version
             (self.seq_profile << 5) | self.seq_level_idx_0, // x2d == 45
             flags1,
             0,
